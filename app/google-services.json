@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "857560407207",
+    "firebase_url": "https://android-chat-6a582.firebaseio.com",
+    "project_id": "android-chat-6a582",
+    "storage_bucket": "android-chat-6a582.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:857560407207:android:0e2813e8c01f8ca2",
+        "android_client_info": {
+          "package_name": "claudioshigemi.com.androidchat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "857560407207-k01n0iq2drmocqht4mrvifn272div8d1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_cydv0AuZ2pry8ZiUCs-zwAzPO9o2ryo"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
