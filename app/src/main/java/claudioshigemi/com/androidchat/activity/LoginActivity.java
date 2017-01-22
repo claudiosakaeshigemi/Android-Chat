@@ -1,11 +1,16 @@
-package claudioshigemi.com.androidchat;
+package claudioshigemi.com.androidchat.activity;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.app.LoaderManager.LoaderCallbacks;
 
@@ -13,13 +18,13 @@ import android.content.CursorLoader;
 import android.content.Loader;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.AsyncTask;
 
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
@@ -28,9 +33,19 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import claudioshigemi.com.androidchat.R;
+import claudioshigemi.com.androidchat.model.User;
 
 import static android.Manifest.permission.READ_CONTACTS;
 
@@ -51,10 +66,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     private static final String[] DUMMY_CREDENTIALS = new String[]{
             "foo@example.com:hello", "bar@example.com:world"
     };
-    /**
-     * Keep track of the login task to ensure we can cancel it if requested.
-     */
-    private UserLoginTask mAuthTask = null;
+
 
     // UI references.
     private AutoCompleteTextView mEmailView;
@@ -62,10 +74,15 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     private View mProgressView;
     private View mLoginFormView;
 
+    private FirebaseAuth mAuth;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        mAuth = FirebaseAuth.getInstance();
+
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
         populateAutoComplete();
@@ -75,7 +92,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
                 if (id == R.id.login || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
+                    attemptLogin(false);
                     return true;
                 }
                 return false;
@@ -86,12 +103,22 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         mEmailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                attemptLogin();
+                attemptLogin(false);
+            }
+        });
+
+        Button mRegisterButton = (Button) findViewById(R.id.email_registration_button);
+        mRegisterButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                attemptLogin(true);
             }
         });
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
+
+
     }
 
     private void populateAutoComplete() {
@@ -143,8 +170,8 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
      * If there are form errors (invalid email, missing fields, etc.), the
      * errors are presented and no actual login attempt is made.
      */
-    private void attemptLogin() {
-        if (mAuthTask != null) {
+    private void attemptLogin(Boolean isRegistering) {
+        if (mAuth == null) {
             return;
         }
 
@@ -185,8 +212,38 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true);
-            mAuthTask = new UserLoginTask(email, password);
-            mAuthTask.execute((Void) null);
+
+            if (isRegistering) {
+                mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+
+
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        showProgress(false);
+                        if (!task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this, "NAO PODE REGISTRAR", Toast.LENGTH_SHORT).show();
+                        } else {
+                            // mostre username dialogo
+                            UsernameDialogFragment dialog = new UsernameDialogFragment();
+                            dialog.show(getFragmentManager(), null );
+                        }
+                    }
+                });
+            } else {
+                mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+
+                        showProgress(false);
+                        if (!task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this, "Falhou para autentificar", Toast.LENGTH_SHORT).show();
+                        }else  {
+                            Intent intent = new Intent(getBaseContext(), ChatActivity.class);
+                            startActivity(intent);
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -290,6 +347,41 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         int IS_PRIMARY = 1;
     }
 
-   
+    public static class UsernameDialogFragment extends DialogFragment{
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            // Get the layout inflater
+            LayoutInflater inflater = getActivity().getLayoutInflater();
+
+            builder.setView(inflater.inflate(R.layout.username_dialog, null))
+                    // Add action buttons
+                    .setPositiveButton(R.string.action_register, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int id) {
+
+
+//                            https://android-chat-6a582.firebaseio.com/ nomeDoAplicativo/User/userID
+
+                            EditText usernameField =  (EditText) ((AlertDialog) dialog).findViewById(R.id.username);
+                            String username = usernameField.getText().toString();
+
+                            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
+                            User aUser = new User(username, "Empty","Empty ");
+                           FirebaseDatabase.getInstance().getReference("users").child(userId).child("profile")
+                                   .setValue(aUser);
+
+                            Intent intent = new Intent(getActivity().getBaseContext(), ChatActivity.class);
+                            startActivity(intent);
+
+                        }
+                    });
+            return builder.create();
+        }
+    }
+
 }
 
